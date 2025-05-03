@@ -13,7 +13,7 @@ class Model(nn.Module):
         self.expandChannels = nn.Linear(1,expandDim)
         
         self.triangleMul = TriangleMultiplication(expandDim)
-        self.lastLayer = nn.Linear(hiddenDim,outputDim)
+        self.lastLayer = nn.Linear(expandDim,outputDim)
         self.outputDim = outputDim
         self.hiddenDim = hiddenDim
         
