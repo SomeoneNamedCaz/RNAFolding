@@ -9,7 +9,7 @@ class Model(nn.Module):
         expandDim = 128
         self.embedding = nn.Embedding(inputDim, hiddenDim)
         encoder_layer = nn.TransformerEncoderLayer(d_model=hiddenDim, nhead=8,batch_first=True)
-        self.tBlock1 = nn.TransformerEncoder(encoder_layer, 5)
+        self.tBlock1 = nn.TransformerEncoder(encoder_layer, 2)
         self.expandChannels = nn.Linear(1,expandDim)
         
         self.triangleMul = TriangleMultiplication(expandDim)
