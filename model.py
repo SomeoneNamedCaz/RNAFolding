@@ -21,6 +21,7 @@ class Model(nn.Module):
         self = self.to(device)
         self.device = device
     def forward(self, input:torch.tensor):
+        print("inner size",input.size())
         input = input.to(self.device)
         output = self.embedding(input)
         output = self.tBlock1(output) # has shape batch, seqLen, Channels
