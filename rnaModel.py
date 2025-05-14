@@ -1,14 +1,15 @@
 import torch
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from time import time
 
-class Model(nn.Module):
+class RNAModel(nn.Module):
     def __init__(self, inputDim, hiddenDim, outputDim,device):
         super().__init__()
         expandDim = 128
         self.embedding = nn.Embedding(inputDim, hiddenDim)
-        encoder_layer = nn.TransformerEncoderLayer(d_model=hiddenDim, nhead=8,batch_first=True)
+        encoder_layer = nn.TransformerEncoderLayer(d_model=hiddenDim, nhead=4,batch_first=True)
         self.tBlock1 = nn.TransformerEncoder(encoder_layer, 2)
         self.expandChannels = nn.Linear(1,expandDim)
         
