@@ -3,13 +3,16 @@ import torch.nn as nn
 import torch.nn.functional as F
 from time import time
 from math import sqrt
+from torch.utils.checkpoint import checkpoint
+import psutil
+
 
 class RNAModel(nn.Module):
-    def __init__(self, inputDim, hiddenDim, outputDim,device):
+    def __init__(self, inputDim, encoderHiddenDim, expandDim, outputDim):
         super().__init__()
-        expandDim = 128
-        self.embedding = nn.Embedding(inputDim, hiddenDim)
-        encoder_layer = nn.TransformerEncoderLayer(d_model=hiddenDim, nhead=4,batch_first=True)
+        # expandDim is big determiner of memory usage
+        self.embedding = nn.Embedding(inputDim, encoderHiddenDim)
+        encoder_layer = nn.TransformerEncoderLayer(d_model=encoderHiddenDim, nhead=4,batch_first=True)
         self.tBlock1 = nn.TransformerEncoder(encoder_layer, 2)
         self.expandChannels = nn.Linear(1,expandDim)
         
@@ -19,23 +22,31 @@ class RNAModel(nn.Module):
         self.triangleMul3 = TriangleMultiplicationOut(expandDim)
         self.lastLayer = nn.Linear(expandDim,outputDim)
         self.outputDim = outputDim
-        self.hiddenDim = hiddenDim
+        self.hiddenDim = encoderHiddenDim
         
         print("made model with", sum(p.numel() for p in self.parameters()), "parameters of which", sum(p.numel() for p in self.parameters() if p.requires_grad), "are trainable")
-        self = self.to(device)
-        self.device = device
+        # self = self.to(device)
+        # self.device = device
     def forward(self, input:torch.tensor):
+        # process = psutil.Process()
+        # print("before",process.memory_info().rss / 1e6,"MB") 
         print("inner size",input.size())
-        input = input.to(self.device)
+        # input = input.to(self.device)
         output = self.embedding(input)
         output = self.tBlock1(output) # has shape batch, seqLen, Channels
-        output = torch.matmul(output, output.transpose(1,2)).unsqueeze(-1) # change to distogram shape: batchSize, seqLen, seqLen, 1
-        output = self.expandChannels(output)
-        output = self.triangleMul(output)
-        output =  self.triangleAtten(output)
-        print("self atten")
-        output = self.triangleMul2(output)
-        output = self.triangleMul3(output)
+        # print("after transformer",process.memory_info().rss / 1e6,"MB")
+        output = torch.matmul(output, output.transpose(1,2)).unsqueeze(-1) 
+        # output = checkpoint(torch.matmul,output, output.transpose(1,2)).unsqueeze(-1) # change to distogram shape: batchSize, seqLen, seqLen, 1
+        # # print("after matmul",process.memory_info().rss / 1e6,"MB")
+        # output = self.expandChannels(output) # shape: batchSize, seqLen, seqLen, channels
+        # # print("after expand",process.memory_info().rss / 1e6,"MB")
+        # output = checkpoint(self.triangleMul,output)
+        # # print("after triangle",process.memory_info().rss / 1e6,"MB")
+        # output =  checkpoint(self.triangleAtten, output)
+        # # print("after atten",process.memory_info().rss / 1e6,"MB")
+        # # output =  self.triangleAtten(output)
+        # output = checkpoint(self.triangleMul2,output)
+        # output = checkpoint(self.triangleMul3,output)
         # outputShape = output.shape[:2] + (self.outputDim,)
         # output = output.view(-1,self.hiddenDim)
  
@@ -51,7 +62,7 @@ class TriangleMultiplicationOut(nn.Module):
         self.layerNorm = nn.LayerNorm(input_channels)
         self.firstAttenLin = nn.Linear(input_channels, internalChannels)
         self.secondAttenLin = nn.Linear(input_channels, internalChannels)
-        self.thirdAttenLin = nn.Linear(input_channels, internalChannels)
+        self.thirdAttenLin = nn.Linear(input_channels, input_channels)
         self.outNorm = nn.LayerNorm(internalChannels)
         self.outLin = nn.Linear(internalChannels, input_channels)
 
@@ -61,7 +72,7 @@ class TriangleMultiplicationOut(nn.Module):
         b = F.sigmoid(self.firstAttenLin(normalized)) * self.secondAttenLin(normalized)
         g = F.sigmoid(self.thirdAttenLin(normalized))
         out = torch.einsum('bikc,bjkc->bijc', a, b)        
-
+        print("einsummed shape",out.shape, "g shape", g.shape)
         output = g * self.outLin(self.outNorm(out))
         
 
