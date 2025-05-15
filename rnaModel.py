@@ -35,18 +35,18 @@ class RNAModel(nn.Module):
         output = self.embedding(input)
         output = self.tBlock1(output) # has shape batch, seqLen, Channels
         # print("after transformer",process.memory_info().rss / 1e6,"MB")
-        output = torch.matmul(output, output.transpose(1,2)).unsqueeze(-1) 
-        # output = checkpoint(torch.matmul,output, output.transpose(1,2)).unsqueeze(-1) # change to distogram shape: batchSize, seqLen, seqLen, 1
-        # # print("after matmul",process.memory_info().rss / 1e6,"MB")
-        # output = self.expandChannels(output) # shape: batchSize, seqLen, seqLen, channels
-        # # print("after expand",process.memory_info().rss / 1e6,"MB")
-        # output = checkpoint(self.triangleMul,output)
-        # # print("after triangle",process.memory_info().rss / 1e6,"MB")
-        # output =  checkpoint(self.triangleAtten, output)
-        # # print("after atten",process.memory_info().rss / 1e6,"MB")
-        # # output =  self.triangleAtten(output)
-        # output = checkpoint(self.triangleMul2,output)
-        # output = checkpoint(self.triangleMul3,output)
+        # output = torch.matmul(output, output.transpose(1,2)).unsqueeze(-1) 
+        output = checkpoint(torch.matmul,output, output.transpose(1,2)).unsqueeze(-1) # change to distogram shape: batchSize, seqLen, seqLen, 1
+        # print("after matmul",process.memory_info().rss / 1e6,"MB")
+        output = self.expandChannels(output) # shape: batchSize, seqLen, seqLen, channels
+        # print("after expand",process.memory_info().rss / 1e6,"MB")
+        output = checkpoint(self.triangleMul,output)
+        # print("after triangle",process.memory_info().rss / 1e6,"MB")
+        output =  checkpoint(self.triangleAtten, output)
+        # print("after atten",process.memory_info().rss / 1e6,"MB")
+        # output =  self.triangleAtten(output)
+        output = checkpoint(self.triangleMul2,output)
+        output = checkpoint(self.triangleMul3,output)
         # outputShape = output.shape[:2] + (self.outputDim,)
         # output = output.view(-1,self.hiddenDim)
  
